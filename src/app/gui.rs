@@ -1188,15 +1188,7 @@ fn ensure_reasonable_size(img: SourceImg) -> SourceImg {
 }
 
 fn default_generation_settings(id: Uuid, name: String) -> GenerationSettings {
-    let mut settings = GenerationSettings::default(id, name);
-    settings.set_raw_target(default_target_image());
-    settings
-}
-
-fn default_target_image() -> SourceImg {
-    image::load_from_memory(include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/modi.jpg")))
-        .expect("failed to load bundled modi.jpg")
-        .to_rgb8()
+    GenerationSettings::default(id, name)
 }
 fn image_overlap_preview(
     arg: &str,

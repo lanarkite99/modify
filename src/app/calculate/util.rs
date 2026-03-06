@@ -155,7 +155,14 @@ impl GenerationSettings {
     pub fn get_target(&self) -> Result<(SourceImg, Vec<i64>), Box<dyn std::error::Error>> {
         let target = self.get_raw_target();
         let target = self.target_crop_scale.apply(&target, self.sidelen);
-        let weights = vec![255; (self.sidelen * self.sidelen) as usize]; // uniform weights for all targets
+        let weights = if self.custom_target.is_some() {
+            vec![255; (self.sidelen * self.sidelen) as usize] // uniform weights
+        } else {
+            let target_weights =
+                image::load_from_memory(include_bytes!("weights256.png"))?.to_rgb8();
+            let target_weights = self.target_crop_scale.apply(&target_weights, self.sidelen);
+            load_weights(target_weights)
+        };
 
 
         Ok((target, weights))
@@ -165,7 +172,7 @@ impl GenerationSettings {
         if let Some((w, h, data)) = &self.custom_target {
             image::ImageBuffer::from_vec(*w, *h, data.clone()).unwrap()
         } else {
-            image::load_from_memory(include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/modi.jpg")))
+            image::load_from_memory(include_bytes!("target256.png"))
                 .unwrap()
                 .to_rgb8()
         }
