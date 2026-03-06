@@ -2,7 +2,6 @@
 # MODIfy
 revolutionary new technology that turns any image into MODI
 
-![example](example.gif)
 
 # How to use
 

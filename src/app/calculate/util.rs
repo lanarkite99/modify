@@ -155,14 +155,8 @@ impl GenerationSettings {
     pub fn get_target(&self) -> Result<(SourceImg, Vec<i64>), Box<dyn std::error::Error>> {
         let target = self.get_raw_target();
         let target = self.target_crop_scale.apply(&target, self.sidelen);
-        let weights = if self.custom_target.is_some() {
-            vec![255; (self.sidelen * self.sidelen) as usize] // uniform weights
-        } else {
-            let target_weights =
-                image::load_from_memory(include_bytes!("weights256.png"))?.to_rgb8();
-            let target_weights = self.target_crop_scale.apply(&target_weights, self.sidelen);
-            load_weights(target_weights)
-        };
+        let weights = vec![255; (self.sidelen * self.sidelen) as usize]; // uniform weights for all targets
+
 
         Ok((target, weights))
     }
