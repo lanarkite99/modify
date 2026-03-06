@@ -161,6 +161,8 @@ pub struct ObamifyApp {
     #[cfg(not(target_arch = "wasm32"))]
     current_drawing_id: Arc<AtomicU32>,
     current_filter_mode: wgpu::FilterMode,
+
+    reverse: bool,
 }
 
 impl ObamifyApp {
@@ -231,7 +233,8 @@ impl ObamifyApp {
         source: Preset,
         change_index: usize,
     ) {
-        let (seed_count, seeds, colors, sim) = morph_sim::init_image(self.size.0, source);
+        let (seed_count, mut seeds, colors, mut sim) = morph_sim::init_image(self.size.0, source);
+        sim.prepare_play(&mut seeds, self.reverse);
         self.apply_sim_init(device, queue, seed_count, seeds, colors, sim);
         self.gui.current_preset = change_index;
     }
@@ -259,9 +262,15 @@ impl ObamifyApp {
 
         // get all folders in ../presets
         let presets: Vec<Preset> = if let Some(storage) = cc.storage {
-            eframe::get_value(storage, "modi_presets_v1").unwrap_or(get_presets())
+            eframe::get_value(storage, "presets").unwrap_or(get_presets())
         } else {
             get_presets()
+        };
+
+        let has_obamified_once = if let Some(storage) = cc.storage {
+            eframe::get_value::<bool>(storage, "has_obamified_once").unwrap_or(false)
+        } else {
+            false
         };
 
         #[cfg(target_arch = "wasm32")]
@@ -789,7 +798,7 @@ impl ObamifyApp {
             preview_image: None,
             #[cfg(not(target_arch = "wasm32"))]
             stroke_count: 0,
-            gui: gui::GuiState::default(presets, random_preset),
+            gui: gui::GuiState::default(presets, random_preset, has_obamified_once),
             frame_count: 0,
             #[cfg(not(target_arch = "wasm32"))]
             current_drawing_id: Arc::new(AtomicU32::new(0)),
@@ -798,6 +807,8 @@ impl ObamifyApp {
             #[cfg(target_arch = "wasm32")]
             inbox: Vec::new(),
             current_filter_mode: wgpu::FilterMode::Linear,
+
+            reverse: false,
         }
     }
 
@@ -1779,18 +1790,22 @@ macro_rules! include_presets {
                     )))
                     .unwrap()
                     .to_rgb8();
-                    let width = img.width();
-                    let height = img.height();
                     Preset {
                         inner: UnprocessedPreset {
                             name: $name.to_owned(),
-                            width,
-                            height,
+                            width: img.width(),
+                            height: img.height(),
                             source_img: img.into_raw(),
                         },
-                        // Built-in presets should not force a historical target assignment.
-                        // Identity mapping keeps startup previews neutral; new generations use the bundled Modi target.
-                        assignments: (0..(width * height) as usize).collect::<Vec<usize>>(),
+                        assignments: include_str!(concat!("../presets/", $name, "/assignments.json"))
+                            .to_string()
+                            .strip_prefix('[')
+                            .unwrap()
+                            .strip_suffix(']')
+                            .unwrap()
+                            .split(',')
+                            .map(|s| s.parse().unwrap())
+                            .collect::<Vec<usize>>(),
                     }
                 }),*
             ]

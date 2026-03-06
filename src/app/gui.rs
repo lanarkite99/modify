@@ -52,12 +52,19 @@ pub(crate) struct GuiState {
     pub presets: Vec<Preset>,
     //pub current_settings: GenerationSettings,
     configuring_generation: Option<(SourceImg, GenerationSettings, GuiImageCache)>,
+    saved_config: Option<(SourceImg, GenerationSettings)>,
     pub current_preset: usize,
     error_message: Option<String>,
+
+    has_obamified_once: bool,
 }
 
 impl GuiState {
-    pub fn default(presets: Vec<Preset>, current_preset: usize) -> GuiState {
+    pub fn default(
+        presets: Vec<Preset>,
+        current_preset: usize,
+        has_obamified_once: bool,
+    ) -> GuiState {
         GuiState {
             animate: true,
             //fps_text: String::new(),
@@ -73,8 +80,10 @@ impl GuiState {
             //currently_processing: None,
             //current_settings: GenerationSettings::default(),
             configuring_generation: None,
+            saved_config: None,
             current_preset,
             error_message: None,
+            has_obamified_once,
         }
     }
 
@@ -127,7 +136,8 @@ fn hide_icons() {
 
 impl App for ObamifyApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, "modi_presets_v1", &self.gui.presets);
+        eframe::set_value(storage, "presets", &self.gui.presets);
+        eframe::set_value(storage, "has_obamified_once", &self.gui.has_obamified_once);
     }
     fn update(&mut self, ctx: &egui::Context, frame: &mut Frame) {
         let Some(rs) = frame.wgpu_render_state() else {
@@ -216,7 +226,9 @@ impl App for ObamifyApp {
 
                             if self.gif_recorder.should_stop() {
                                 // finish recording
-                                if !self.gif_recorder.finish(self.sim.name()) {
+                                if !self.gif_recorder.finish(
+                                    self.gif_recorder.get_name(self.sim.name(), self.reverse),
+                                ) {
                                     // cancelled
                                     self.stop_recording_gif(device, &rs.queue);
                                 }
@@ -311,32 +323,32 @@ impl App for ObamifyApp {
 
                         GuiMode::Transform => {
                             ui.horizontal_wrapped(|ui| {
+                                if ui.add(egui::Button::new("play transformation")).clicked() {
+                                    self.gui.animate = true;
+                                    self.sim.prepare_play(&mut self.seeds, self.reverse);
+                                }
                                 if ui
-                                    .add_enabled(
-                                        !self.gui.animate,
-                                        egui::Button::new("play transformation"), //.fill(egui::Color32::from_rgb(47, 92, 34)),
-                                    )
-                                    .clicked()
+                                    .add(egui::Checkbox::new(&mut self.reverse, "reverse"))
+                                    .changed()
                                 {
                                     self.gui.animate = true;
-                                }
-                                if ui
-                                    .add_enabled(
-                                        self.gui.animate,
-                                        egui::Button::new("switch target"),
-                                    )
-                                    .clicked()
-                                {
-                                    self.sim.switch();
-                                }
-                                if ui.button("reload").clicked() {
                                     self.reset_sim(device, &rs.queue);
-                                    self.gui.animate = false;
                                 }
+                                // if ui.button("reload").clicked() {
+                                //     self.reset_sim(device, &rs.queue);
+                                //     self.gui.animate = false;
+                                // }
                             });
                             ui.separator();
 
-                            if ui.button("save gif").clicked() {
+                            if ui
+                                .button(if self.reverse {
+                                    "save reverse gif"
+                                } else {
+                                    "save gif"
+                                })
+                                .clicked()
+                            {
                                 self.gif_recorder.status = GifStatus::Recording;
                                 self.gif_recorder.encoder = None;
                                 if let Err(err) = self
@@ -436,7 +448,7 @@ impl App for ObamifyApp {
                                                         preset.clone(),
                                                         i,
                                                     );
-                                                    self.gui.animate = false;
+                                                    self.gui.animate = true;
                                                     self.gui.current_preset = i;
                                                     close_menu = true;
                                                 }
@@ -465,22 +477,50 @@ impl App for ObamifyApp {
                                         }
                                     });
 
-                                if ui.button("MODIfy new image").clicked() {
-                                    // open file select
-                                    prompt_image(
-                                        "choose image to MODIfy",
-                                        self,
-                                        |name: String, mut img: SourceImg, app: &mut ObamifyApp| {
-                                            img = ensure_reasonable_size(img);
-                                            app.gui.configuring_generation = Some((
-                                                img,
-                                                default_generation_settings(Uuid::new_v4(), name),
-                                                GuiImageCache::default(),
-                                            ));
-                                            #[cfg(target_arch = "wasm32")]
-                                            hide_icons();
-                                        },
+                                // Make button glow if user hasn't obamified once
+                                let button_response = if !self.gui.has_obamified_once {
+                                    // Create a glowing effect by animating the button outline
+                                    let time = ui.input(|i| i.time);
+                                    let pulse = ((time * 2.0).sin() * 0.5 + 0.5) as f32;
+                                    let glow_color = egui::Color32::from_rgb(
+                                        (30.0 + pulse * 100.0) as u8,
+                                        (120.0 + pulse * 135.0) as u8,
+                                        (200.0 + pulse * 55.0) as u8,
                                     );
+
+                                    let button = egui::Button::new("MODIfy new image")
+                                        .stroke(egui::Stroke::new(1.0, glow_color));
+                                    ui.add(button)
+                                } else {
+                                    ui.button("MODIfy new image")
+                                };
+
+                                if button_response.clicked() {
+                                    // open file select
+                                    if let Some((ref img, ref settings)) = self.gui.saved_config {
+                                        self.gui.configuring_generation = Some((
+                                            img.clone(),
+                                            settings.clone_with_new_id(),
+                                            GuiImageCache::default(),
+                                        ));
+                                        #[cfg(target_arch = "wasm32")]
+                                        hide_icons();
+                                    } else {
+                                        prompt_image(
+                                            "choose image to MODIfy",
+                                            self,
+                                            |name: String, mut img: SourceImg, app: &mut ObamifyApp| {
+                                                img = ensure_reasonable_size(img);
+                                                app.gui.configuring_generation = Some((
+                                                    img,
+                                                    GenerationSettings::default(Uuid::new_v4(), name),
+                                                    GuiImageCache::default(),
+                                                ));
+                                                #[cfg(target_arch = "wasm32")]
+                                                hide_icons();
+                                            },
+                                        );
+                                    }
                                 }
                             });
                             ui.separator();
@@ -704,6 +744,8 @@ impl App for ObamifyApp {
                                         self.gui.configuring_generation.take()
                                     {
                                         self.gui.show_progress_modal(settings.id);
+                                        self.gui.saved_config =
+                                            Some((img.clone(), settings.clone()));
                                         //self.gui.currently_processing = Some(path.clone());
                                         //self.change_sim(device, path.clone(), false);
 
@@ -798,6 +840,7 @@ impl App for ObamifyApp {
                                         self.gui.presets.len() - 1,
                                     );
                                     self.gui.animate = true;
+                                    self.gui.has_obamified_once = true;
                                     self.gui.hide_progress_modal();
                                     ui.close();
                                     break;
@@ -1187,9 +1230,6 @@ fn ensure_reasonable_size(img: SourceImg) -> SourceImg {
     image::imageops::resize(&img, new_w, new_h, image::imageops::FilterType::Lanczos3)
 }
 
-fn default_generation_settings(id: Uuid, name: String) -> GenerationSettings {
-    GenerationSettings::default(id, name)
-}
 fn image_overlap_preview(
     arg: &str,
     ui: &mut egui::Ui,

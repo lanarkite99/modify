@@ -32,20 +32,25 @@
     <meta name="format-detection" content="telephone=no">
 
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
-    <link data-trunk rel="rust" data-wasm-opt="4" data-integrity="none"/>
+    <link data-trunk rel="rust" data-wasm-opt="4" data-integrity="none" />
     <!-- this is the base url relative to which other urls will be constructed. trunk will insert this from the public-url option -->
     <base data-trunk-public-url />
 
     <link data-trunk rel="icon" href="assets/favicon.ico" data-integrity="none">
 
     <link data-trunk rel="copy-file" href="assets/sw.js" data-integrity="none" />
-    <link data-trunk rel="copy-file" href="assets/manifest.json"/>
-    <link data-trunk rel="copy-file" href="assets/android-chrome-192x192.png" data-target-path="assets" data-integrity="none"/>
-    <link data-trunk rel="copy-file" href="assets/android-chrome-512x512.png" data-target-path="assets" data-integrity="none"/>
-    <link data-trunk rel="copy-file" href="assets/apple-touch-icon.png" data-target-path="assets" data-integrity="none"/>
-    <link data-trunk rel="copy-file" href="assets/pfp_transparent.png" data-target-path="assets" data-integrity="none"/>
-    <link data-trunk rel="copy-file" href="assets/github-mark-white.svg" data-target-path="assets" data-integrity="none"/>
-    <link data-trunk rel="copy-file" href="worker.js" data-integrity="none"/>
+    <link data-trunk rel="copy-file" href="assets/manifest.json" />
+    <link data-trunk rel="copy-file" href="assets/android-chrome-192x192.png" data-target-path="assets"
+        data-integrity="none" />
+    <link data-trunk rel="copy-file" href="assets/android-chrome-512x512.png" data-target-path="assets"
+        data-integrity="none" />
+    <link data-trunk rel="copy-file" href="assets/apple-touch-icon.png" data-target-path="assets"
+        data-integrity="none" />
+    <link data-trunk rel="copy-file" href="assets/pfp_transparent.png" data-target-path="assets"
+        data-integrity="none" />
+    <link data-trunk rel="copy-file" href="assets/github-mark-white.svg" data-target-path="assets"
+        data-integrity="none" />
+    <link data-trunk rel="copy-file" href="worker.js" data-integrity="none" />
 
 
     <link rel="manifest" href="manifest.json">
@@ -253,9 +258,7 @@
         <a href="https://github.com/lanarkite99/modify" class="icon-link" target="_blank" rel="noopener noreferrer">
             <img src="assets/github-mark-white.svg" alt="source code" />
             <span class="icon-text">source code</span>
-        </a>
-
-    </div>
+        </a>`r`n    </div>
     <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
     <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
     <script>
@@ -288,8 +291,8 @@
             }
 
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                            (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
-            
+                (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+
             if (!isMobile) {
                 return;
             }
@@ -326,22 +329,22 @@
                 max-width: 300px;
             `;
 
-            shareButton.addEventListener('click', async function(e) {
+            shareButton.addEventListener('click', async function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 try {
                     const response = await fetch(blobUrl);
                     const blob = await response.blob();
                     const file = new File([blob], fileName, { type: 'image/gif' });
-                    
+
                     if (navigator.canShare && !navigator.canShare({ files: [file] })) {
                         throw new Error('File sharing not supported');
                     }
 
                     await navigator.share({
                         files: [file],
-                        title: 'MODIfication',
+                        title: 'obamification',
                         text: 'made with https://lanarkite99.github.io/modify/'
                     });
                 } catch (error) {
@@ -377,8 +380,8 @@
             container.appendChild(downloadLink);
         }
 
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
+        const observer = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
                 if (mutation.addedNodes.length) {
                     addShareButton();
                 }
@@ -386,7 +389,7 @@
         });
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('DOMContentLoaded', function () {
                 observer.observe(document.body, {
                     childList: true,
                     subtree: true
