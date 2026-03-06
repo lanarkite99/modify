@@ -262,7 +262,7 @@ impl ObamifyApp {
 
         // get all folders in ../presets
         let presets: Vec<Preset> = if let Some(storage) = cc.storage {
-            eframe::get_value(storage, "presets").unwrap_or(get_presets())
+            eframe::get_value(storage, "modi_presets_v2").unwrap_or(get_presets())
         } else {
             get_presets()
         };
@@ -1797,15 +1797,8 @@ macro_rules! include_presets {
                             height: img.height(),
                             source_img: img.into_raw(),
                         },
-                        assignments: include_str!(concat!("../presets/", $name, "/assignments.json"))
-                            .to_string()
-                            .strip_prefix('[')
-                            .unwrap()
-                            .strip_suffix(']')
-                            .unwrap()
-                            .split(',')
-                            .map(|s| s.parse().unwrap())
-                            .collect::<Vec<usize>>(),
+                        // Upstream preset assignments are Obama-specific; start neutral for MODIfy defaults.
+                        assignments: (0..(img.width() * img.height()) as usize).collect::<Vec<usize>>(),
                     }
                 }),*
             ]
