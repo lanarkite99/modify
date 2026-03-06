@@ -127,7 +127,7 @@ fn hide_icons() {
 
 impl App for ObamifyApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, "presets", &self.gui.presets);
+        eframe::set_value(storage, "modi_presets_v1", &self.gui.presets);
     }
     fn update(&mut self, ctx: &egui::Context, frame: &mut Frame) {
         let Some(rs) = frame.wgpu_render_state() else {
@@ -465,16 +465,16 @@ impl App for ObamifyApp {
                                         }
                                     });
 
-                                if ui.button("obamify new image").clicked() {
+                                if ui.button("MODIfy new image").clicked() {
                                     // open file select
                                     prompt_image(
-                                        "choose image to obamify",
+                                        "choose image to MODIfy",
                                         self,
                                         |name: String, mut img: SourceImg, app: &mut ObamifyApp| {
                                             img = ensure_reasonable_size(img);
                                             app.gui.configuring_generation = Some((
                                                 img,
-                                                GenerationSettings::default(Uuid::new_v4(), name),
+                                                default_generation_settings(Uuid::new_v4(), name),
                                                 GuiImageCache::default(),
                                             ));
                                             #[cfg(target_arch = "wasm32")]
@@ -512,7 +512,7 @@ impl App for ObamifyApp {
             );
         });
         if self.gui.configuring_generation.is_some() {
-            Window::new("obamification settings")
+            Window::new("MODIfication settings")
                 .max_width(screen_width.min(400.0) * 0.8)
                 //.max_height(500.0)
                 .resizable(false)
@@ -530,7 +530,7 @@ impl App for ObamifyApp {
                         |ui| {
                             ui.set_max_width(max_w);
                             // ui.add(egui::Label::new(
-                            //     egui::RichText::new("obamification settings")
+                            //     egui::RichText::new("MODIfication settings")
                             //         .heading()
                             //         .strong(),
                             // ));
@@ -606,7 +606,7 @@ impl App for ObamifyApp {
 
                             if change_source {
                                 prompt_image(
-                                    "choose image to obamify",
+                                    "choose image to MODIfy",
                                     self,
                                     |_, mut img: SourceImg, app: &mut ObamifyApp| {
                                         img = ensure_reasonable_size(img);
@@ -1187,6 +1187,17 @@ fn ensure_reasonable_size(img: SourceImg) -> SourceImg {
     image::imageops::resize(&img, new_w, new_h, image::imageops::FilterType::Lanczos3)
 }
 
+fn default_generation_settings(id: Uuid, name: String) -> GenerationSettings {
+    let mut settings = GenerationSettings::default(id, name);
+    settings.set_raw_target(default_target_image());
+    settings
+}
+
+fn default_target_image() -> SourceImg {
+    image::load_from_memory(include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/modi.jpg")))
+        .expect("failed to load bundled modi.jpg")
+        .to_rgb8()
+}
 fn image_overlap_preview(
     arg: &str,
     ui: &mut egui::Ui,
