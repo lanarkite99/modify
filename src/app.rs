@@ -1779,16 +1779,18 @@ macro_rules! include_presets {
                     )))
                     .unwrap()
                     .to_rgb8();
+                    let width = img.width();
+                    let height = img.height();
                     Preset {
                         inner: UnprocessedPreset {
                             name: $name.to_owned(),
-                            width: img.width(),
-                            height: img.height(),
+                            width,
+                            height,
                             source_img: img.into_raw(),
                         },
                         // Built-in presets should not force a historical target assignment.
                         // Identity mapping keeps startup previews neutral; new generations use the bundled Modi target.
-                        assignments: (0..(img.width() * img.height()) as usize).collect::<Vec<usize>>(),
+                        assignments: (0..(width * height) as usize).collect::<Vec<usize>>(),
                     }
                 }),*
             ]
