@@ -136,7 +136,7 @@ fn hide_icons() {
 
 impl App for ObamifyApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, "modi_presets_v2", &self.gui.presets);
+        eframe::set_value(storage, "modi_presets_v3", &self.gui.presets);
         eframe::set_value(storage, "has_obamified_once", &self.gui.has_obamified_once);
     }
     fn update(&mut self, ctx: &egui::Context, frame: &mut Frame) {

@@ -262,7 +262,7 @@ impl ObamifyApp {
 
         // get all folders in ../presets
         let presets: Vec<Preset> = if let Some(storage) = cc.storage {
-            eframe::get_value(storage, "modi_presets_v2").unwrap_or(get_presets())
+            eframe::get_value(storage, "modi_presets_v3").unwrap_or(get_presets())
         } else {
             get_presets()
         };
