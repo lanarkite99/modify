@@ -136,7 +136,7 @@ fn hide_icons() {
 
 impl App for ObamifyApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, "modi_presets_v3", &self.gui.presets);
+        eframe::set_value(storage, "modi_presets_v4", &self.gui.presets);
         eframe::set_value(storage, "has_obamified_once", &self.gui.has_obamified_once);
     }
     fn update(&mut self, ctx: &egui::Context, frame: &mut Frame) {
@@ -322,25 +322,7 @@ impl App for ObamifyApp {
                         }
 
                         GuiMode::Transform => {
-                            if self.gui.show_progress_modal.is_none()
-                                && self.gui.configuring_generation.is_none()
-                            {
-                                let preset = self.gui.presets[self.gui.current_preset].clone();
-                                if has_identity_assignments(&preset) {
-                                    if let Some(img) = image::ImageBuffer::from_vec(
-                                        preset.inner.width,
-                                        preset.inner.height,
-                                        preset.inner.source_img.clone(),
-                                    ) {
-                                        let mut settings = GenerationSettings::default(
-                                            Uuid::new_v4(),
-                                            preset.inner.name.clone(),
-                                        );
-                                        settings.sidelen = 128;
-                                        launch_generation_from_source(self, device, img, settings);
-                                    }
-                                }
-                            }
+
 
                             ui.horizontal_wrapped(|ui| {
                                 if ui.add(egui::Button::new("play transformation")).clicked() {
@@ -462,34 +444,14 @@ impl App for ObamifyApp {
                                                 {
                                                     to_remove = Some(i);
                                                 } else if preset_resp.clicked() {
-                                                    if has_identity_assignments(&preset) {
-                                                        if let Some(img) = image::ImageBuffer::from_vec(
-                                                            preset.inner.width,
-                                                            preset.inner.height,
-                                                            preset.inner.source_img.clone(),
-                                                        ) {
-                                                            let mut settings = GenerationSettings::default(
-                                                                Uuid::new_v4(),
-                                                                preset.inner.name.clone(),
-                                                            );
-                                                            settings.sidelen = 128;
-                                                            launch_generation_from_source(
-                                                                self,
-                                                                device,
-                                                                img,
-                                                                settings,
-                                                            );
-                                                        }
-                                                    } else {
-                                                        self.change_sim(
-                                                            device,
-                                                            &rs.queue,
-                                                            preset.clone(),
-                                                            i,
-                                                        );
-                                                        self.gui.animate = true;
-                                                        self.gui.current_preset = i;
-                                                    }
+                                                    self.change_sim(
+                                                        device,
+                                                        &rs.queue,
+                                                        preset.clone(),
+                                                        i,
+                                                    );
+                                                    self.gui.animate = true;
+                                                    self.gui.current_preset = i;
                                                     close_menu = true;
                                                 }
                                             });
@@ -920,12 +882,9 @@ impl App for ObamifyApp {
 
                         if self.gui.process_cancelled.load(Ordering::Relaxed) {
                             ui.label("cancelling...");
-                        } else if self.gui.last_progress == 0.0 {
-                            ui.label("preparing...");
                         } else {
                             ui.label(processing_label_message);
                         }
-                        ui.add(egui::ProgressBar::new(self.gui.last_progress).show_percentage());
 
                         ui.horizontal(|ui| {
                             if ui.button("cancel").clicked() {
@@ -1376,59 +1335,6 @@ fn get_default_preset_name(mut n: String) -> String {
     name
 }
 
-fn has_identity_assignments(preset: &Preset) -> bool {
-    preset
-        .assignments
-        .iter()
-        .enumerate()
-        .all(|(i, &a)| i == a)
-}
-
-fn launch_generation_from_source(
-    app: &mut ObamifyApp,
-    device: &wgpu::Device,
-    img: SourceImg,
-    mut settings: GenerationSettings,
-) {
-    app.gui.show_progress_modal(settings.id);
-    app.gui.saved_config = Some((img.clone(), settings.clone()));
-
-    // Adjust for consistency across resolutions.
-    settings.proximity_importance =
-        (settings.proximity_importance as f32 / (settings.sidelen as f32 / 128.0)) as i64;
-
-    app.gui
-        .process_cancelled
-        .store(false, std::sync::atomic::Ordering::Relaxed);
-
-    let unprocessed = UnprocessedPreset {
-        name: settings.name.clone(),
-        width: img.width(),
-        height: img.height(),
-        source_img: img.into_raw(),
-    };
-
-    app.resize_textures(device, (settings.sidelen, settings.sidelen), false);
-
-    #[cfg(target_arch = "wasm32")]
-    {
-        app.start_job(unprocessed, settings);
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        std::thread::spawn({
-            let tx = app.progress_tx.clone();
-            let cancelled = app.gui.process_cancelled.clone();
-            move || {
-                let result = calculate::process(unprocessed, settings, &mut tx.clone(), cancelled);
-                if let Err(err) = result {
-                    tx.send(ProgressMsg::Error(err.to_string())).ok();
-                }
-            }
-        });
-    }
-}
 // fn blend_rgb_images(a: &image::RgbImage, b: &image::RgbImage, alpha: f32) -> image::RgbImage {
 //     assert_eq!(
 //         a.dimensions(),
