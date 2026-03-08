@@ -89,20 +89,38 @@ impl CropScale {
 
     pub fn apply(&self, img: &SourceImg, sidelen: u32) -> SourceImg {
         let (w, h) = img.dimensions();
-
         let s = self.scale.max(1.0);
-
-        let base_side = w.min(h) as f32;
-        let mut crop_side = (base_side / s).floor().max(1.0);
-
-        crop_side = crop_side.min(w as f32).min(h as f32);
-
-        let max_x_off = (w as f32 - crop_side).max(0.0);
-        let max_y_off = (h as f32 - crop_side).max(0.0);
 
         let xn = (self.x.clamp(-1.0, 1.0) + 1.0) * 0.5;
         let yn = (self.y.clamp(-1.0, 1.0) + 1.0) * 0.5;
 
+        // For default zoom (scale=1), preserve the full image and fit it into a square canvas.
+        if s <= 1.0001 {
+            let fit = (sidelen as f32 / w as f32).min(sidelen as f32 / h as f32);
+            let new_w = (w as f32 * fit).round().max(1.0) as u32;
+            let new_h = (h as f32 * fit).round().max(1.0) as u32;
+
+            let resized = if new_w == w && new_h == h {
+                img.clone()
+            } else {
+                imageops::resize(img, new_w, new_h, imageops::FilterType::Lanczos3)
+            };
+
+            let mut canvas = SourceImg::from_pixel(sidelen, sidelen, image::Rgb([255, 255, 255]));
+            let max_x_off = (sidelen.saturating_sub(new_w)) as f32;
+            let max_y_off = (sidelen.saturating_sub(new_h)) as f32;
+            let x0 = (xn * max_x_off).round() as i64;
+            let y0 = (yn * max_y_off).round() as i64;
+            imageops::overlay(&mut canvas, &resized, x0, y0);
+            return canvas;
+        }
+
+        let base_side = w.min(h) as f32;
+        let mut crop_side = (base_side / s).floor().max(1.0);
+        crop_side = crop_side.min(w as f32).min(h as f32);
+
+        let max_x_off = (w as f32 - crop_side).max(0.0);
+        let max_y_off = (h as f32 - crop_side).max(0.0);
         let x0 = (xn * max_x_off).floor() as u32;
         let y0 = (yn * max_y_off).floor() as u32;
         let cs = crop_side as u32;

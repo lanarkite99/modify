@@ -9,6 +9,8 @@ pub use crate::app::calculate::worker::worker_entry;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc;
+#[cfg(target_arch = "wasm32")]
+use std::collections::VecDeque;
 use std::{
     num::NonZeroU64,
     sync::{Arc, RwLock},
@@ -92,7 +94,7 @@ pub struct ObamifyApp {
     worker: Option<Worker>,
 
     #[cfg(target_arch = "wasm32")]
-    inbox: Vec<ProgressMsg>,
+    inbox: VecDeque<ProgressMsg>,
 
     gif_recorder: gif_recorder::GifRecorder,
     sim: Sim,
@@ -814,7 +816,7 @@ impl ObamifyApp {
             #[cfg(target_arch = "wasm32")]
             worker: None,
             #[cfg(target_arch = "wasm32")]
-            inbox: Vec::new(),
+            inbox: VecDeque::new(),
             current_filter_mode: wgpu::FilterMode::Linear,
 
             reverse: false,
@@ -824,7 +826,7 @@ impl ObamifyApp {
     pub fn get_latest_msg(&mut self) -> Option<ProgressMsg> {
         #[cfg(target_arch = "wasm32")]
         {
-            self.inbox.pop()
+            self.inbox.pop_front()
         }
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -924,12 +926,12 @@ impl ObamifyApp {
 
         // Receive progress messages
         {
-            let inbox_ptr: *mut Vec<ProgressMsg> = &mut self.inbox;
+            let inbox_ptr: *mut VecDeque<ProgressMsg> = &mut self.inbox;
             let onmessage = Closure::wrap(Box::new(move |e: web_sys::MessageEvent| {
                 if let Ok(msg) = serde_wasm_bindgen::from_value::<ProgressMsg>(e.data()) {
                     // SAFETY: single-threaded; worker posts to main thread
                     unsafe {
-                        (*inbox_ptr).push(msg);
+                        (*inbox_ptr).push_back(msg);
                     }
                 }
             }) as Box<dyn FnMut(_)>);
