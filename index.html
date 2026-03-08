@@ -258,14 +258,23 @@
         <a href="https://github.com/lanarkite99/modify" class="icon-link" target="_blank" rel="noopener noreferrer">
             <img src="assets/github-mark-white.svg" alt="source code" />
             <span class="icon-text">source code</span>
-        </a>`r`n    </div>
-    <!--Register Service Worker. this will cache the wasm / js scripts for offline use (for PWA functionality). -->
-    <!-- Force refresh (Ctrl + F5) to load the latest files instead of cached files  -->
+        </a>
+    </div>
+        <!-- Disable service-worker caching so GitHub Pages always serves the latest build. -->
     <script>
-        // We disable caching during development so that we always view the latest version.
-        if ('serviceWorker' in navigator && window.location.hash !== "#dev") {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('sw.js');
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async function () {
+                try {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(regs.map((reg) => reg.unregister()));
+                } catch (_) {}
+
+                if ('caches' in window) {
+                    try {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map((k) => caches.delete(k)));
+                    } catch (_) {}
+                }
             });
         }
 

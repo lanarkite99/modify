@@ -260,11 +260,20 @@ impl ObamifyApp {
         let size = (DEFAULT_RESOLUTION, DEFAULT_RESOLUTION);
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
-        // get all folders in ../presets
-        let presets: Vec<Preset> = if let Some(storage) = cc.storage {
-            eframe::get_value(storage, "modi_presets_v4").unwrap_or(get_presets())
-        } else {
-            get_presets()
+        // Keep web startup deterministic and fast: always use bundled presets on wasm.
+        let presets: Vec<Preset> = {
+            #[cfg(target_arch = "wasm32")]
+            {
+                get_presets()
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if let Some(storage) = cc.storage {
+                    eframe::get_value(storage, "modi_presets_v4").unwrap_or(get_presets())
+                } else {
+                    get_presets()
+                }
+            }
         };
 
         let has_obamified_once = if let Some(storage) = cc.storage {
@@ -1799,12 +1808,15 @@ macro_rules! include_presets {
                             height,
                             source_img: img.into_raw(),
                         },
-                        assignments: serde_json::from_str(include_str!(concat!(
-                            "../presets/",
-                            $name,
-                            "/assignments.json"
-                        )))
-                        .unwrap(),
+                        assignments: include_str!(concat!("../presets/", $name, "/assignments.json"))
+                            .to_string()
+                            .strip_prefix('[')
+                            .unwrap()
+                            .strip_suffix(']')
+                            .unwrap()
+                            .split(',')
+                            .map(|s| s.parse().unwrap())
+                            .collect::<Vec<usize>>(),
                     }
                 }),*
             ]
