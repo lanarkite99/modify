@@ -242,6 +242,12 @@ impl Sim {
         self.name.clone()
     }
 
+    pub fn set_all_dst_force(&mut self, force: f32) {
+        for cell in &mut self.cells {
+            cell.dst_force = force;
+        }
+    }
+
     // pub fn source_path(&self) -> PathBuf {
     //     self.source.clone()
     // }
@@ -383,3 +389,4 @@ impl Sim {
 //         .to_string_lossy()
 //         .into_owned()
 // }
+

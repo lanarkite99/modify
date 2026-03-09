@@ -28,6 +28,7 @@ use std::sync::atomic::Ordering;
 use uuid::Uuid;
 
 const CUSTOM_TRANSFORM_START_DELAY_SECS: f64 = 3.0;
+const CUSTOM_TRANSFORM_DST_FORCE: f32 = 0.09;
 
 // #[cfg(not(target_arch = "wasm32"))]
 // use std::thread as wasm_thread;
@@ -852,6 +853,7 @@ impl App for ObamifyApp {
                                         new_preset,
                                         self.gui.presets.len() - 1,
                                     );
+                                    self.sim.set_all_dst_force(CUSTOM_TRANSFORM_DST_FORCE);
                                     self.gui.animate = false;
                                     self.gui.delayed_play_start_at =
                                         Some(ctx.input(|i| i.time) + CUSTOM_TRANSFORM_START_DELAY_SECS);
@@ -1415,3 +1417,4 @@ pub fn blend_rgb_images(a: &SourceImg, b: &SourceImg, alpha: f32) -> SourceImg {
 
     out
 }
+
