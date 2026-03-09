@@ -27,6 +27,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use uuid::Uuid;
 
+const CUSTOM_TRANSFORM_START_DELAY_SECS: f64 = 3.0;
+
 // #[cfg(not(target_arch = "wasm32"))]
 // use std::thread as wasm_thread;
 
@@ -52,6 +54,7 @@ pub(crate) struct GuiState {
     pub presets: Vec<Preset>,
     //pub current_settings: GenerationSettings,
     configuring_generation: Option<(SourceImg, GenerationSettings, GuiImageCache)>,
+    delayed_play_start_at: Option<f64>,
     pub current_preset: usize,
     error_message: Option<String>,
 
@@ -79,6 +82,7 @@ impl GuiState {
             //currently_processing: None,
             //current_settings: GenerationSettings::default(),
             configuring_generation: None,
+            delayed_play_start_at: None,
             current_preset,
             error_message: None,
             has_obamified_once,
@@ -166,6 +170,17 @@ impl App for ObamifyApp {
 
         #[cfg(target_arch = "wasm32")]
         self.ensure_worker(ctx);
+
+        if let Some(start_at) = self.gui.delayed_play_start_at {
+            let now = ctx.input(|i| i.time);
+            if now >= start_at {
+                self.gui.delayed_play_start_at = None;
+                self.gui.animate = true;
+                self.sim.prepare_play(&mut self.seeds, self.reverse);
+            } else {
+                self.gui.animate = false;
+            }
+        }
 
         // Run GPU pipeline
         if let Some(img) = &self.preview_image {
@@ -325,6 +340,7 @@ impl App for ObamifyApp {
 
                             ui.horizontal_wrapped(|ui| {
                                 if ui.add(egui::Button::new("play transformation")).clicked() {
+                                    self.gui.delayed_play_start_at = None;
                                     self.gui.animate = true;
                                     self.sim.prepare_play(&mut self.seeds, self.reverse);
                                 }
@@ -332,6 +348,7 @@ impl App for ObamifyApp {
                                     .add(egui::Checkbox::new(&mut self.reverse, "reverse"))
                                     .changed()
                                 {
+                                    self.gui.delayed_play_start_at = None;
                                     self.gui.animate = true;
                                     self.reset_sim(device, &rs.queue);
                                 }
@@ -449,6 +466,7 @@ impl App for ObamifyApp {
                                                         preset.clone(),
                                                         i,
                                                     );
+                                                    self.gui.delayed_play_start_at = None;
                                                     self.gui.animate = true;
                                                     self.gui.current_preset = i;
                                                     close_menu = true;
@@ -737,6 +755,7 @@ impl App for ObamifyApp {
                                     if let Some((img, mut settings, _)) =
                                         self.gui.configuring_generation.take()
                                     {
+                                        self.gui.delayed_play_start_at = None;
                                         self.gui.show_progress_modal(settings.id);
                                         //self.gui.currently_processing = Some(path.clone());
                                         //self.change_sim(device, path.clone(), false);
@@ -833,7 +852,9 @@ impl App for ObamifyApp {
                                         new_preset,
                                         self.gui.presets.len() - 1,
                                     );
-                                    self.gui.animate = true;
+                                    self.gui.animate = false;
+                                    self.gui.delayed_play_start_at =
+                                        Some(ctx.input(|i| i.time) + CUSTOM_TRANSFORM_START_DELAY_SECS);
                                     self.gui.has_obamified_once = true;
                                     self.gui.hide_progress_modal();
                                     ui.close();
